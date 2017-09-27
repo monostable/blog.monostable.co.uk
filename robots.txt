@@ -1,0 +1,3 @@
+User-agent: *
+Sitemap: http://blog.monostable.co.uk/sitemap.xml
+Disallow: /ghost/

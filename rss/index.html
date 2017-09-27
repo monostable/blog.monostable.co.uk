@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/"><channel><title><![CDATA[Monostable Blog]]></title><description><![CDATA[Code & Electronics]]></description><link>http://blog.monostable.co.uk/</link><generator>Ghost 0.8</generator><lastBuildDate>Wed, 27 Sep 2017 17:26:33 GMT</lastBuildDate><atom:link href="http://blog.monostable.co.uk/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title><![CDATA[Growing your code with Arduino]]></title><description><![CDATA[<p>Over the past few years I have been using the Arduino ecosystem more and more for prototyping in a professional setting. </p>
+
+<p>I have been working on software for the Braille e-book reader prototypes for <a href="http://bristolbraille.co.uk">Bristol Braille Technology</a> and I have finalised the firmware of the inital Kickstarter batch of the</p>]]></description><link>http://blog.monostable.co.uk/growing-your-code-with-arduino/</link><guid isPermaLink="false">8d5a0205-1200-4035-a0f2-5cc474b4e1e6</guid><dc:creator><![CDATA[Kaspar Emanuel]]></dc:creator><pubDate>Wed, 09 Aug 2017 21:55:46 GMT</pubDate><content:encoded><![CDATA[<p>Over the past few years I have been using the Arduino ecosystem more and more for prototyping in a professional setting. </p>
+
+<p>I have been working on software for the Braille e-book reader prototypes for <a href="http://bristolbraille.co.uk">Bristol Braille Technology</a> and I have finalised the firmware of the inital Kickstarter batch of the <a href="http://vrgochair.com">VRGO Chair</a> virtual reality controller.</p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2017/01/vrgo-braille-3.png" alt=""></p>
+
+<p>There was a time when I would dismiss Arduino code and as unprofessional and "just for hobby projects" but it has some strong points in its favour that made me abandon these preconceptions long ago:</p>
+
+<ul>
+<li>A packaged development environment that even a mechanical engineer can install and use.</li>
+<li>A vast selection of re-usable code: any particular module that you think may be suitable for your prototype likely has an open source library or example project for Arduino.</li>
+<li>Abstractions that save time on looking up documentation and writing boilerplate code.</li>
+<li>The abstractions also help portability. Code that makes use of the Arduino libraries can be used over a wide range of processors (from 8-bit low clock-speed <a href="http://energia.nu/">MSP430</a> and AVR to powerful ARM Cortex M4 in the form of the Arduino Due and <a href="https://www.pjrc.com/teensy/index.html">Teensy</a> boards). </li>
+</ul>
+
+<p>There are downsides of course:</p>
+
+<ul>
+<li>A packaged development environment that anyone that cares the least bit about code formatting will perceive as torture.</li>
+<li>You lose some control and performance and the abstraction layer can become a source of confusion (e.g. PIN2 on DDRD on your AVR, as it is in the schematic becomes pin number 0 in the Arduino world, but it depends on your processor)</li>
+<li>While your code is potentially portable it isn't guaranteed. The devil is in the details of what hardware and processor specific things your code, or your libraries code, makes use of.</li>
+</ul>
+
+<p>There are ways to mitigate these issues though and I want to outline some of the coping mechanisms I have been using that have let me use Arduino in a professional setting.</p>
+
+<p>These techniques have, so far, let me not abandon my code as we move from prototypes to products but let me extend it and let me keep using the flexibility and development speed of the "Arduino way" to my advantage.</p>
+
+<h2 id="asensibleenvironment">A sensible environment</h2>
+
+<p>If you spend a lot of time writing code you should spend a lot of time getting to know your text-editor. The one embedded inside the cute Arduino IDE is not a good one and you should abandon it with haste. <a href="http://www.vim.org/">Vim</a> and <a href="https://www.gnu.org/software/emacs/">Emacs</a> are the grumpy old men, <a href="https://atom.io/">Atom</a> and <a href="https://code.visualstudio.com/">VSCode</a> are the new kids on the block, but there are millions of good ones, why would you use the Arduino IDE to edit code?</p>
+
+<p>There is a little preference that I always tick when I install the Arduino IDE. It's called "Use external editor" and it makes the area with the code go grey and un-editable and refresh whenever the file is saved by something else. I simply use the IDE to compile and upload the code and edit the code itself with Vim.</p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2017/01/use_external_editor.png" alt=""></p>
+
+<p>As you code grows even this limited use of the IDE may become annoying in which case I thoroughly recommend switching the project over to <a href="http://platformio.org/">PlatformIO</a>. Ejecting your Arduino project from the IDE to PlatformIO should be straightforward. If you are using the Uno for instance running <code>pio init --board uno</code> and moving all the source code into the <code>src/</code> directory should get you there. </p>
+
+<h2 id="letsmakeitmodular">Let's make it modular</h2>
+
+<p>Often people seem to be unaware that Arduino is just C++. More accurately you are using C++ and the Arduino C++ framework.</p>
+
+<p>C++ was designed with huge collaborative software projects in mind and some of its features can seem cumbersome when working on small embedded systems and daunting if you have been learning to code by playing with Arduino.</p>
+
+<p>C++ also has a <code>class</code> hammer and too often I come across code that has <code>class</code>ed all the things for no particular reason other than that seems to be what you are supposed to do in C++. In my experience code like this easily looses sight of the relationships it's trying to express. </p>
+
+<p>Classes are a language feature for expressing something that exists more than once. A class is really good <a href="https://youtu.be/J-zFQ9fOTSU?t=35s">when you want two thousand of something</a> and many consider a singleton class, a class with a single instance, to be something to avoid.</p>
+
+<p>In embedded systems you are often building abstractions around resources, say the internal EEPROM or a motor controller or LED attached to particular pins, where it is <em>dictated by the real world</em> that there only ever is one thing and there could never possibly be a possibility to instantiate another. </p>
+
+<p>I don't quite think singleton classes should be avoided at all costs. Classes provide other benefits such as bound methods and encapsulation but I don't introduce a class to my code unless there is a really good reason to. What I use instead are namespaced modules.</p>
+
+<p>Most higher level languages have adopted module systems where you can split your code into files and <code>import</code> or <code>require</code> your files as desired. C++ has inherited a two file system from C.  <code>.cpp</code> is the main source file and <code>.h</code> is the header file.</p>
+
+<p>You can declare prototypes, re-confirming the types from your function declarations, in your header files so that you can use them in your <code>.cpp</code> file in any order you like. I find that the repetition in <code>.h</code> and <code>.cpp</code> become cumbersome and slows me down so I opt for single <code>.h</code> file modules and namespaces for encapsulation within the modules. </p>
+
+<p>The one module name that has become common in all my projects is pins.h where all the pins used on my Arduino compatible board are mapped out.</p>
+
+<pre><code class="language-cpp">// pins.h
+namespace Pins {  
+    enum {
+        LED = 13,
+        BATTERY_LEVEL = A0,
+        // ...
+    }
+}
+</code></pre>
+
+<p>As things are added to you main <code>.ino</code> file often simply moving things out of <code>setup</code> and <code>loop</code> can be a natural start to a new module. </p>
+
+<p>A contrived example:</p>
+
+<pre><code class="language-cpp">// example.ino
+#include "pins.h"
+#include "led.h"
+#include "some_other_thing.h"
+
+void setup() {  
+   Led::setup();
+   SomeOtherThing::setup();
+   // ...
+}
+
+void loop() {  
+   Led::loop();
+   SomeOtherThing::loop();
+   // ...
+}
+</code></pre>
+
+<pre><code class="language-cpp">// led.h
+namespace Led {  
+     void setup() {
+        pinMode(Pins::LED, OUTPUT);
+     }
+
+    void loop() {
+       digitalWrite(Pins::LED, HIGH);
+       delay(500);
+       digitalWrite(Pins::LED, LOW);
+       delay(500);
+    }
+}
+</code></pre>
+
+<p>The caveat here is you need to pay attention to your imports and the order your functions are declared in within your <code>.h</code> files. It's not quite like module systems of more higher level languages but it's pretty damn close.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Too often do I see Arduino being disparaged as "not professional" when it is just a convenient way to compile your C++ code and upload it to a variety of development boards. Often people use it as an excuse to re-write everything from scratch, and more often than not <a href="https://www.joelonsoftware.com/2000/04/06/things-you-should-never-do-part-i/">that's a really bad idea</a>. </p>
+
+<p>You can adapt you development environment to be more pleasant and adopt development practices that helps you write clean and modular code. This lets you grow your Arduino prototypes into production ready products rather than throwing everything away and starting over. </p>]]></content:encoded></item><item><title><![CDATA[Kitnic.it, 1-click BOM and the CPL]]></title><description><![CDATA[<p><em>This is a guest blog post for Octopart and first <a href="https://blog.octopart.com/archives/2016/11/kitnic-1-click-bom-cpl">appeared on their blog</a>.</em></p>
+
+<p><a href="https://kitnic.it/">Kitnic.it</a> is a site to share electronics projects. If a project is on Kitnic, you can download the Gerbers and put parts into a retailer shopping cart with a single click.</p>
+
+<p><img src="https://i.imgur.com/gQoxO6l.png" alt="kitnic_screenshot.png"></p>
+
+<p>These are early days</p>]]></description><link>http://blog.monostable.co.uk/kitnic-it-1-click-bom-and-the-cpl/</link><guid isPermaLink="false">7b3355ee-19b8-4129-a5b9-6f676e72ecb8</guid><dc:creator><![CDATA[Kaspar Emanuel]]></dc:creator><pubDate>Wed, 30 Nov 2016 16:38:57 GMT</pubDate><content:encoded><![CDATA[<p><em>This is a guest blog post for Octopart and first <a href="https://blog.octopart.com/archives/2016/11/kitnic-1-click-bom-cpl">appeared on their blog</a>.</em></p>
+
+<p><a href="https://kitnic.it/">Kitnic.it</a> is a site to share electronics projects. If a project is on Kitnic, you can download the Gerbers and put parts into a retailer shopping cart with a single click.</p>
+
+<p><img src="https://i.imgur.com/gQoxO6l.png" alt="kitnic_screenshot.png"></p>
+
+<p>These are early days for Kitnic: our submission process currently involves <a href="https://github.com/monostable/kitnic#submitting-your-project">opening a pull-request on GitHub</a>.</p>
+
+<p>In an effort to encourage people to give it a go, I often look over open source hardware projects that I come across to see if I can get them into a state that is ready to be put up on the site. The challenge is almost always in sorting out the bill of materials (BOM). Really, this is the issue that Kitnic is trying to address: there is no standard way to record a BOM.</p>
+
+<p>Whether you are looking at someone else's project or your own work months after it's creation, trying to find the right parts can be a tedious exercise. The main culprits are often generic components, like resistors and capacitors, where you care about the basic values and specification but not about the exact manufacturer or retailer part.</p>
+
+<p>The <a href="https://1clickbom.com/">1-click BOM browser extension</a> that goes along with Kitnic makes the process of adding items to shopping carts a seamless experience. In its first few iterations, this only worked if you specified exact retailer or manufacturer part numbers. In an effort to reduce the tedium of creating BOMs I added a smart, semantic match of surface mount resistors and capacitors to those in the <a href="http://octopart.com/common-parts-library">Common Parts Library (CPL)</a>. This was only possible thanks to Octopart providing the <a href="https://github.com/Octopart/CPL-data">CPL data in an easily parse-able format with a Creative Commons license</a>. The result is best illustrated with the GIF below and should save many engineers a lot of frustration and time.</p>
+
+<p><img src="https://raw.githubusercontent.com/monostable/1clickBOM/master/readme_images/demo.gif" alt="demo.gif"></p>
+
+<p>Everything mentioned here is free and open source, and is available on GitHub so if you spot any issues or have ideas for new features don't hesitate to <a href="https://github.com/monostable/kitnic#get-in-touch">get in touch</a><a href="https://github.com/monostable/kitnic#get-in-touch"> </a>— and maybe even dig in and make improvements yourself. We are also currently running a promotion for Kitnic for early adopters: you get free PCB manufacturing for <a href="https://github.com/monostable/kitnic#submitting-your-project">registering your project</a>.</p>]]></content:encoded></item><item><title><![CDATA[Beginner FPGA programming using open source tools #2: Setup]]></title><description><![CDATA[<p>This tutorial is for the <a href="http://www.latticesemi.com/icestick">iCEstick Evaluation Kit</a> which you can get for about $25 <a href="http://uk.farnell.com/lattice-semiconductor/ice40hx1k-stick-evn/ice40-hx1k-icestick-eval-kit/dp/2355207?ost=icestick&amp;selectedCategoryId=&amp;categoryNameResp=All%2BCategories&amp;iscrfnonsku=false">from</a> <a href="http://www.mouser.com/ProductDetail/Lattice/ICE40HX1K-STICK-EVN/?qs=%2fha2pyFaduiOEqlsaiRfBulNsZFFFJWzq2a0PhVAJbo%3d">various</a> <a href="http://www.digikey.com/product-search/en?keywords=%20icestick">places</a>.</p>
+
+<p>We want to spend as little time as possible on the setup. If you are already comfortable with Bash and compilation and have your system set up for that you can follow</p>]]></description><link>http://blog.monostable.co.uk/beginner-fpga-series-2/</link><guid isPermaLink="false">e2ae2979-16fd-446a-b5f1-3d6ca6f01479</guid><category><![CDATA[beginner-fpga-series]]></category><dc:creator><![CDATA[Kaspar Emanuel]]></dc:creator><pubDate>Tue, 14 Jun 2016 12:05:00 GMT</pubDate><media:content url="http://blog.monostable.co.uk/content/images/2016/06/icestick-reva-side-2400.png" medium="image"/><content:encoded><![CDATA[<img src="http://blog.monostable.co.uk/content/images/2016/06/icestick-reva-side-2400.png" alt="Beginner FPGA programming using open source tools #2: Setup"><p>This tutorial is for the <a href="http://www.latticesemi.com/icestick">iCEstick Evaluation Kit</a> which you can get for about $25 <a href="http://uk.farnell.com/lattice-semiconductor/ice40hx1k-stick-evn/ice40-hx1k-icestick-eval-kit/dp/2355207?ost=icestick&amp;selectedCategoryId=&amp;categoryNameResp=All%2BCategories&amp;iscrfnonsku=false">from</a> <a href="http://www.mouser.com/ProductDetail/Lattice/ICE40HX1K-STICK-EVN/?qs=%2fha2pyFaduiOEqlsaiRfBulNsZFFFJWzq2a0PhVAJbo%3d">various</a> <a href="http://www.digikey.com/product-search/en?keywords=%20icestick">places</a>.</p>
+
+<p>We want to spend as little time as possible on the setup. If you are already comfortable with Bash and compilation and have your system set up for that you can follow <a href="http://www.clifford.at/icestorm/">the instructions</a> from the Ice Storm project but below is an easier route using Vagrant.</p>
+
+<p>Vagrant will set up a virtual machine for you, install all the right tools and make sure the USB connection to the iCEstick is passed through. This should work on any machine be it Linux, Windows or OSX. </p>
+
+<ol>
+<li><a href="https://www.virtualbox.org/wiki/Downloads">Install Virtualbox</a>  </li>
+<li><a href="https://www.vagrantup.com/">Install Vagrant</a>  </li>
+<li><a href="https://git-scm.com/download/">Install Git</a>  </li>
+<li>Open a terminal (use Git Bash on Windows) and clone the icestorm-vagrant repository.</li>
+</ol>
+
+<pre><code>git clone https://github.com/monostable/icestorm-vagrant  
+</code></pre>
+
+<p>(The code-block above indicates this is a bash command to be typed into your terminal.)</p>
+
+<p>We now create the Vagrant machine.</p>
+
+<pre><code>cd icestorm-vagrant  
+vagrant up  
+</code></pre>
+
+<p>The above will set up a 64-bit Ubuntu 14.04 virtual machine with all the required tools installed. The compilation steps can take a while so go grab a coffee or something. </p>
+
+<p>After it completes you can login to your newly created virtual machine. </p>
+
+<pre><code>vagrant ssh  
+</code></pre>
+
+<p>This should say "Welcome to Ubuntu..." and present you with a prompt that looks like this:  </p>
+
+<pre><code>vagrant@vagrant-ubuntu-trusty-64:~$  
+</code></pre>
+
+<p>We are now all on the same page and have the same system with the same tools installed.</p>
+
+<p>Next we will run a simple example through the entire toolchain workflow to end up with some hardware set on your iCE40 FPGA. </p>]]></content:encoded></item><item><title><![CDATA[Beginner FPGA programming using open source tools #1: Introduction]]></title><description><![CDATA[<p>In this blog series I will document my adventure in learning how to program iCE40 FPGAs using only open source tools. I have no prior experience using Verilog or any of the software involved so the aim is a tutorial suitable for beginners.</p>
+
+<p>Field programmable gate arrays (FPGAs) are reconfigurable</p>]]></description><link>http://blog.monostable.co.uk/beginner-fpga-series-1/</link><guid isPermaLink="false">a2f89689-9ccb-40b3-bd4f-ae44ac3a3740</guid><category><![CDATA[beginner-fpga-series]]></category><dc:creator><![CDATA[Kaspar Emanuel]]></dc:creator><pubDate>Mon, 13 Jun 2016 22:38:46 GMT</pubDate><content:encoded><![CDATA[<p>In this blog series I will document my adventure in learning how to program iCE40 FPGAs using only open source tools. I have no prior experience using Verilog or any of the software involved so the aim is a tutorial suitable for beginners.</p>
+
+<p>Field programmable gate arrays (FPGAs) are reconfigurable hardware. When you program an FPGA you define hardware logic blocks and connections between them allowing for high speed parallel execution of digital logic designs.</p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2016/06/fpga.png" alt="FPGA">
+<a style="font-size:1rem" href="http://www.vision.caltech.edu/CNS248/Fpga/fpga1a.gif">image credit: W.T.Freeman</a></p>
+
+<p>FPGAs are how new processor designs are prototyped and they have niche applications where high speed and parallel processing and a large number of IO (inputs and outputs) are a distinct advantage.</p>
+
+<p>Their major downsides are their cost and the complexity and license restrictions of the vendor specific toolchains. Most of the time you don't want to use an FPGA, but when you do, oh boy are you in for a treat. </p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2016/06/xilinx-1.jpg" alt="Xilinx ISE">
+<a style="font-size:1rem" href="https://www.youtube.com/watch?v=VIHSe2dsFvE">image credit: Paolo Santinelli</a></p>
+
+<p>Vendors provide heavy bloated IDEs that are gigabytes big, slow and seem to include everything but the kitchen sink. These are the only way to program their devices. They restrict you in what features you are allowed to use and even which of their devices you are allowed to program depending on what licensing fees you pay.</p>
+
+<p>Even more annoyingly it takes considerable time investment to learn the work flows and quirks of a toolchain that will tie you to a certain product line of a certain vendor.</p>
+
+<p>The reason vendors get away with this is that they keep a tight grasp on their bitstream formats, an encrypted communication protocol that allows you to re-program and reconfigure the FPGA.</p>
+
+<p>I last used FPGAs in University and, though I was fascinated by the technology, it was not a pleasant experience. Since then, while mostly programming microcontrollers and embedded Linux applications, I have become accustomed to a work-flow involving fast, single-purpose programs executed from the bash command-line. I use <code>vim</code>, <code>gcc</code> and <code>make</code> in my day to day and I rely on the shell's repeatability (Ctrl-R is your friend!), configurability and scriptability as a productivity boon.</p>
+
+<p>I had pretty much written off FPGA work as "not my thing" until about a year ago when <a href="http://youtu.be/u1ZHcSNDQMM">an announcement</a> was made that some friendly hackers (Clifford Wolf and Mathias Lasser) had reverse engineered the Lattice iCE40 bitstream and one is now able to program them completely from the command-line using only open source tools.</p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2016/06/make.png" alt="Verilog with Make"></p>
+
+<p><a href="http://www.clifford.at/icestorm/">Documentation</a> and <a href="https://www.youtube.com/watch?v=9rYiGDDUIzg">presentations</a> followed and one of the most interesting revelations was that these efforts could enable on-the-fly reconfiguration of hardware from a software program. This is a new way to do computing that could be a revolutionary solution for some problems.</p>
+
+<p>The easiest way to come to grasps with new way of thinking is to imagine an add-on board for a Raspberry Pi (a shield or hat, if you will) and the software running on the embedded Linux platform could re-configure its attached hardware when it needed to to accelerate a certain computation or access the vast inputs and outputs (144 in the case of the iCE40s) available from the FPGA.</p>
+
+<p>Plans for exactly this are already under way. Clifford Wolf himself has been working on the <a href="http://icoboard.org">Ico Board</a> (pictured) which is currently in a beta release phase and the <a href="https://hackaday.io/project/7982-cat-board">CAT board</a> is another notable project attempting to provide something similar.</p>
+
+<p><img src="http://blog.monostable.co.uk/content/images/2016/06/ico-board_cropped.jpg" alt="Ico Board">
+<a style="font-size:1rem" href="http://icoboard.org/">image credit: OnSite Broadcast eU</a> </p>
+
+<p>The excitement around these advancements is tangible with comparisons to the beginnings of the GNU Compiler Collection being thrown around. It really remains to be seen what the true value of an open source reconfigurable toolchain is and what a community of free acting hackers will build with this. </p>
+
+<p>This is a venture strictly for fun and not for profit as the currently the marketability of the skills of using this particular workflow is questionable at best. Join me in exploration of this frontier of open source. </p>
+
+<p>Let's set up our tools in <a href="http://blog.monostable.co.uk/beginner-fpga-series-2/">part 2</a>.</p>]]></content:encoded></item></channel></rss>
